@@ -3,6 +3,7 @@
 #include <ctime>
 #include <windows.h>
 #include <string>
+#include <random>
 using namespace std;
 
 #define MAX_BULLET_SIZE 10
@@ -16,12 +17,12 @@ public:
 };
 class Stack {	// 총알을 스택 형식으로 쌓기 위해 스택 클래스 생성
 	int top;	// 다음에 나갈 총알의 위치를 가리키는 변수
-	bool* bullet_stack; // 총알집 구현
+	int* bullet_stack; // 총알집 구현
 public:
-	Stack() { this->top = -1, this->bullet_stack = new bool[MAX_BULLET_SIZE]; } // 최대 10개 탄을 창착
-	bool pop();
-	bool peek();
-	void push(bool bullet);
+	Stack() { this->top = -1, this->bullet_stack = new int[MAX_BULLET_SIZE]; } // 최대 10개 탄을 창착
+	int pop();
+	int peek();
+	void push(int bullet);
 	bool is_empty();
 	bool is_full();
 };
@@ -59,8 +60,8 @@ public:
 	void adjustment_hp(player* player, bool plus_minus);
 	void adjustment_player_turn(player* player, bool plus_minus);
 	void use_item1(player* player);
-	void use_item2(player* player, gun *a_gun);
-	void use_item3(player* player, bool &turn_skip);
+	void use_item2(player* player, gun* a_gun);
+	void use_item3(player* player, bool& turn_skip);
 	void show_hp();
 	static void show_maxhp();	// 플레이어들의 최대 체력을 보여주기
 	void show_player_item();// 현재 플레이어가 보유하고 있는 아이템의 갯수를 보여주는 함수
@@ -72,36 +73,40 @@ bool Stack::is_empty() { // 탄창이 비어있으면 false를 반환하는 함수
 	return top == -1;	//top이 -1이면 비어있는 탄창
 }
 bool Stack::is_full() { // 탄창이 꽉차있으면 false를 반환하는 함수
-	return top >= MAX_BULLET_SIZE; // 최대 탄창 사이즈보다 top이 크거나 같으면 풀
+	return top = MAX_BULLET_SIZE; // 최대 탄창 사이즈보다 top이 크거나 같으면 풀
 }
-bool Stack::pop() { // 총알을 발사하는 함수
+int Stack::pop() { // 총알을 발사하는 함수
 	return bullet_stack[top--];
 }
-bool Stack::peek() { // 총알을 확인아이템을 사용했을 때 호출하는 함수
+int Stack::peek() { // 총알을 확인아이템을 사용했을 때 호출하는 함수
 	return bullet_stack[top]; // 현재 총알 리턴
 }
-void Stack::push(bool bul) { // 총알을 장전하는 함수
-	this->bullet_stack[++top] = bul;	//top을 ++한뒤 top 위치에 총알 저장
+void Stack::push(int bullet) { // 총알을 장전하는 함수
+	bullet_stack[++top] = bullet;	//top을 ++한뒤 top 위치에 총알 저장
 }
 
 // 총 관련 함수 구현
-void gun::reload(gun *a_gun) { // 총을 장전하는 함수
+void gun::reload(gun* a_gun) { // 총을 장전하는 함수
 	srand((unsigned int)time(NULL)); // 랜덤 정수 도출 rand()로 사용
-	a_gun->real_bullet_count = (rand() % 5) + 1; // 1개에서 5개의 탄환 랜덤
+	a_gun->real_bullet_count = (rand() % 5) + 1;// 1개에서 5개의 탄환 랜덤
 	a_gun->fake_bullet_count = (rand() % 5) + 1;
-	for (int i = 0; i < a_gun->real_bullet_count; i++) { // 실탄의 갯수 만큼 장전
-		magazine->push(true);
-	}
-	for (int j = 0; j < a_gun->fake_bullet_count; j++) { // 공포탄의 갯수 만큼 장전
-		magazine->push(false);
+	for (int i = 0; i < a_gun->real_bullet_count + a_gun->fake_bullet_count; i++) { // 실탄의 갯수 만큼 장전, 실탄은 1
+		int n = rand() % 2;
+		if (n == 0) {
+			magazine->push(1);
+		}
+		else if(n == 1) {
+			magazine->push(2);
+		}
 	}
 }
-void gun::show_magazine(gun *a_gun) { // 현재 장전되어있는 총알의 갯수를 보여주는 함수
+void gun::show_magazine(gun* a_gun) { // 현재 장전되어있는 총알의 갯수를 보여주는 함수
 	cout << "실탄 : " << a_gun->real_bullet_count << "개\n";
-	cout << "공포탄 : " <<a_gun->fake_bullet_count << "개\n";
+	cout << "공포탄 : " << a_gun->fake_bullet_count << "개\n";
 }
-void gun::self_shoot(player* who_player, player* to_player, gun *a_gun, bool& turn_skip) { // 자신에게 총을 쏠 경우
-	if (a_gun->magazine->pop() == true) { // 장전된 총이 실탄
+void gun::self_shoot(player* who_player, player* to_player, gun* a_gun, bool& turn_skip) { // 자신에게 총을 쏠 경우
+	int jment = a_gun->magazine->pop();
+	if (jment == 1) { // 장전된 총이 실탄
 		cout << "장전된 총알은 실탄이였습니다\n";
 		Sleep(1000);
 		who_player->adjustment_hp(who_player, false);	// 본인 플레이어 체력 -1
@@ -113,18 +118,18 @@ void gun::self_shoot(player* who_player, player* to_player, gun *a_gun, bool& tu
 			who_player->adjustment_player_turn(who_player, false); // 아닐 경우 상대턴으로 넘어감
 			to_player->adjustment_player_turn(to_player, true);
 		}
-		turn_skip = false;
 	}
-	else if (a_gun->magazine->pop() == false) { // 장전된 총이 실탄이 아닐 경우
+	else if (jment == 2) { // 장전된 총이 실탄이 아닐 경우
 		cout << "장전된 총알은 공포탄이였습니다.\n";
 		Sleep(1000);
 		who_player->adjustment_player_turn(who_player, true); // 자신의 턴 계속
 		to_player->adjustment_player_turn(to_player, false);
-		turn_skip = false;
 	}
+	turn_skip = false;
 }
-void gun::to_shoot(player* who_player, player* to_player, gun *a_gun, bool& turn_skip) { //상대에게 쏘는 함수
-	if (a_gun->magazine->pop() == true) { // 장전된 총이 실탄
+void gun::to_shoot(player* who_player, player* to_player, gun* a_gun, bool& turn_skip) { //상대에게 쏘는 함수
+	int jment = a_gun->magazine->pop();
+	if (jment == 1) { // 장전된 총이 실탄
 		cout << "장전된 총알은 실탄이였습니다\n";
 		Sleep(1000);
 		to_player->adjustment_hp(to_player, false);	// 상대 플레이어 체력 -1
@@ -136,9 +141,8 @@ void gun::to_shoot(player* who_player, player* to_player, gun *a_gun, bool& turn
 			who_player->adjustment_player_turn(who_player, false);; // 아닐 경우 상대턴으로 넘어감
 			to_player->adjustment_player_turn(to_player, true);
 		}
-		turn_skip = false;
 	}
-	else if (a_gun->magazine->pop() == false) { // 장전된 총이 실탄이 아닐 경우
+	else if (jment == 2) { // 장전된 총이 실탄이 아닐 경우
 		cout << "장전된 총알은 공포탄이였습니다.\n";
 		Sleep(1000);
 		if (turn_skip == true) {
@@ -149,8 +153,8 @@ void gun::to_shoot(player* who_player, player* to_player, gun *a_gun, bool& turn
 			who_player->adjustment_player_turn(who_player, false);; // 아닐 경우 상대턴으로 넘어감
 			to_player->adjustment_player_turn(to_player, true);
 		}
-		turn_skip = false;
 	}
+	turn_skip = false;
 }
 bool gun::check_bullet(gun* gun) {
 	return gun->magazine->peek();
@@ -163,20 +167,20 @@ void item::show_item() { //보유하고 있는 아이템의 갯수를 출력하는 함수
 	cout << "strn 갯수 : " << item3_count << "개\n";
 }
 bool item::check_item(int num) { //해당 번호의 아이템을 보유하고 있는지 확인하는 함수
-	if (num == 1 and item1_count > 0) {
+	if ((num == 1) and (item1_count > 0)) {
 		return true;
 	}
-	else if (num == 2 and item2_count > 0) {
+	else if ((num == 2) and (item2_count > 0)) {
 		return true;
 	}
-	else if (num == 3 and item3_count > 0) {
+	else if ((num == 3) and (item3_count > 0)) {
 		return true;
 	}
 	else {
 		return false;
 	}
 }
-void player::use_item1(player* player){
+void player::use_item1(player* player) {
 	if (player->player_item->check_item(1) == true) {
 		cout << "hp가 회복되었습니다.\n";
 		player->hp++;
@@ -186,12 +190,12 @@ void player::use_item1(player* player){
 		cout << "아이템을 보유하고 있지 않습니다.\n";
 	}
 }
-void player::use_item2(player* player, gun *a_gun) {
+void player::use_item2(player* player, gun* a_gun) {
 	if (player->player_item->check_item(2) == true) {
-		if (a_gun->check_bullet(a_gun) == true) {
+		if (a_gun->check_bullet(a_gun) == 1) {
 			cout << "현재 장전되어있는 탄환은 실탄 입니다\n";
 		}
-		else {
+		else if(a_gun->check_bullet(a_gun) == 2){
 			cout << "현재 장전되어있는 탄환은 공포탄 입니다\n";
 		}
 		player->player_item->adjustment_item(2, false);
@@ -239,7 +243,7 @@ void item::adjustment_item(int item_num, bool plus_minus) { // 플레이어의 아이템
 }
 
 //플레이어 관련 함수 구현
-int player::maxhp = 0; // 스태틱 변수인 maxhp를 사용하기 위해
+int player::maxhp = 0; // 스태틱 변수인 maxhp를 사용하기 위해 초기화
 void player::hp_setting(player* p1, player* p2) {
 	srand((unsigned int)time(NULL));
 	maxhp = (rand() + 1) % 5 + 1;
@@ -309,8 +313,8 @@ void game_interface::game_start() { // 게임 실행 함수
 	srand((unsigned int)time(NULL)); // 랜덤 정수를 생성하기 위한 함수
 	player::hp_setting(p1, p2);// 플레이어들의 hp 셋팅
 	char ch; // 게임이 종료 되었을 때 플레이어에게 앤터키를 입력 받기 위한 변수
-
 	player::show_maxhp();	// 최대 체력 출력
+
 	while (p1->hp != 0 or p2->hp != 0) { // 두 플레이어의 어느 한쪽의 체력이 0이 될때까지 반복
 		for (int i = 1; i < 4; i++) {
 			p1->player_item->adjustment_item(i, rand() % 2);	// 플레이어의 아이템을 랜덤으로 0개에서 1개 추가
@@ -329,10 +333,10 @@ void game_interface::game_start() { // 게임 실행 함수
 		Sleep(1000);
 		a_gun->show_magazine(a_gun); // 총알에 장전된 실탄과 공포탄의 갯수 출력
 
-		while (a_gun->magazine->is_empty() != true) { // 탄알집이 비어있지 않을 때까지 반복
+		while (a_gun->magazine->is_empty() == false) { // 탄알집이 비어있지 않을 때까지 반복
 			choice = 0; // 선택변수 초기화
 			choice2 = 0; // 선택변수 초기화2
-			if (p1->player_turn == true and p2->player_turn == false) { // 플레이어1의 턴
+			if ((p1->player_turn == true) and (p2->player_turn == false)) { // 플레이어1의 턴
 				cout << "player1의 차례입니다\n";
 				Sleep(1000);
 				p1->show_player_item(); // 플레이어가 가지고 있는 아이템의 갯수 보여주기
@@ -381,7 +385,7 @@ void game_interface::game_start() { // 게임 실행 함수
 					cout << "올바른 번호를 입력해주세요\n";
 				}
 			}
-			else if (p2->player_turn == true and p1->player_turn == false) { //p2의 턴
+			else if ((p2->player_turn == true) and (p1->player_turn == false)) { // 플레이어2의 턴
 				cout << "player2의 차례입니다\n";
 				Sleep(1000);
 				p2->show_player_item(); // 플레이어가 가지고 있는 아이템의 갯수 보여주기
@@ -389,40 +393,37 @@ void game_interface::game_start() { // 게임 실행 함수
 				cout << "총을 쏠지 아이템을 사용할지 선택해주세요\n";
 				cout << "총 : 1 아이템 : 2\n";
 				cin >> choice;
-				if (choice == 1) {
+				if (choice == 1) { // 총을 쏜다를 선택 했을경우
 					cout << "자신에게 총을 쏠지 상대에게 총을 쏠지 선택해주세요\n";
 					cout << "자신 : 1  상대 : 2\n";
 					cin >> choice2;
-					if (choice2 == 1) { // 자신에게 쏜다른 선택했을 경우
-						if (choice2 == 1) {
-							a_gun->self_shoot(p2, p1, a_gun, turn_skip);
-							if (p2->hp == 0) {
-								break;
-							}
+					if (choice2 == 1) {// 자신한테 총을 쏠 경우
+						a_gun->self_shoot(p2, p1, a_gun, turn_skip);
+						if (p2->hp == 0) { //p1의 체력이 0이되었을 경우 반복 종료
+							break;
 						}
-						else if (choice2 == 2) {
-							a_gun->to_shoot(p2, p1, a_gun, turn_skip);
-							if (p1->hp == 0) {
-								break;
-							}
+					}
+					else if (choice2 == 2) {//상대에게 총을 쏠 경우
+						a_gun->to_shoot(p2, p1, a_gun, turn_skip);
+						if (p1->hp == 0) { //p1의 체력이 0이 되었을 경우 반복종료
+							break;
 						}
-						else {
-							cout << "올바른 번호를 입력해주세요\n";
-						}
-
+					}
+					else {
+						cout << "올바른 번호를 입력해주세요\n";
 					}
 				}
-				else if (choice == 2) {
+				else if (choice == 2) { // 아이템을 사용할 경우
 					cout << "사용할 아이템의 번호를 선택해주세요\n";
 					cout << "hot6 : 1, slap : 2, strn : 3\n";
 					cin >> choice2;
-					if (choice2 == 1) {
+					if (choice2 == 1) { // 1번 아이템 사용시
 						p2->use_item1(p2);
 					}
-					else if (choice2 == 2) {
+					else if (choice2 == 2) { // 2번 아이템 사용시
 						p2->use_item2(p2, a_gun);
 					}
-					else if (choice2 == 3) {
+					else if (choice2 == 3) { // 3번 아이템 사용시
 						p2->use_item3(p2, turn_skip);
 					}
 					else {
@@ -440,15 +441,15 @@ void game_interface::game_start() { // 게임 실행 함수
 			}
 		}
 	}
-	if (p1->hp <= 0 and p2->hp > 0) {
+	if ((p1->hp <= 0) and (p2->hp > 0)) {
 		cout << "p2가 승리하였습니다.\n";
 		ch = cin.get();
 	}
-	else if (p2->hp <= 0 and p1->hp > 0) {
+	else if ((p2->hp <= 0) and (p1->hp > 0)) {
 		cout << "p1이 승리하였습니다.\n";
 		ch = cin.get();
 	}
-	else if (p2->hp <= 0 and p1->hp <= 0) {
+	else if ((p2->hp <= 0) and (p1->hp <= 0)) {
 		cout << "무승부 입니다\n";
 		ch = cin.get();
 	}
