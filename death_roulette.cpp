@@ -1,12 +1,10 @@
 #include <iostream>
 #include <stdlib.h>
-#include <ctime>
 #include <windows.h>
 #include <string>
-#include <random>
 using namespace std;
 
-#define MAX_BULLET_SIZE 10
+#define MAX_BULLET_SIZE 10 // 
 
 class player;
 class game_interface {
@@ -14,6 +12,7 @@ public:
 	static int start();	// 처음 게임을 실행했을때 보여지는 인터페이스
 	static void game_start();	// 게임시작
 	static void game_inf();	// 게임 룰을 보여주는 인터페이스
+	static void waitForEnter(); //사용자의 엔터키 입력을 기다리는 함수
 };
 class Stack {	// 총알을 스택 형식으로 쌓기 위해 스택 클래스 생성
 	int top;	// 다음에 나갈 총알의 위치를 가리키는 변수
@@ -87,16 +86,31 @@ void Stack::push(int bullet) { // 총알을 장전하는 함수
 
 // 총 관련 함수 구현
 void gun::reload(gun* a_gun) { // 총을 장전하는 함수
-	srand((unsigned int)time(NULL)); // 랜덤 정수 도출 rand()로 사용
+	srand((unsigned int)time(NULL)); // 랜덤 정수 도출, rand()로 사용
+	int real_count = 0, fake_count = 0; // 두 탄이 얼마나 들어갔는지에 대한 카운트
 	a_gun->real_bullet_count = (rand() % 5) + 1;// 1개에서 5개의 탄환 랜덤
 	a_gun->fake_bullet_count = (rand() % 5) + 1;
 	for (int i = 0; i < a_gun->real_bullet_count + a_gun->fake_bullet_count; i++) { // 실탄의 갯수 만큼 장전, 실탄은 1
 		int n = rand() % 2;
 		if (n == 0) {
-			magazine->push(1);
+			if(real_count < real_bullet_count){
+				magazine->push(1);
+				real_count++;
+			}
+			else {
+				magazine->push(2);
+				fake_count++;
+			}
 		}
 		else if(n == 1) {
-			magazine->push(2);
+			if (fake_count < fake_bullet_count) {
+				magazine->push(2);
+				fake_count++;
+			}
+			else {
+				magazine->push(1);
+				real_count++;
+			}
 		}
 	}
 }
@@ -181,13 +195,17 @@ bool item::check_item(int num) { //해당 번호의 아이템을 보유하고 있는지 확인하는
 	}
 }
 void player::use_item1(player* player) {
-	if (player->player_item->check_item(1) == true) {
-		cout << "hp가 회복되었습니다.\n";
-		player->hp++;
-		player->player_item->adjustment_item(1, false);
-	}
+	if(player->hp < maxhp)
+		if (player->player_item->check_item(1) == true) {
+			cout << "hp가 회복되었습니다.\n";
+			player->hp++;
+			player->player_item->adjustment_item(1, false);
+		}
+		else {
+			cout << "아이템을 보유하고 있지 않습니다.\n";
+		}
 	else {
-		cout << "아이템을 보유하고 있지 않습니다.\n";
+		cout << "현재 체력이 최대 체력을 넘을 수 없습니다.\n";
 	}
 }
 void player::use_item2(player* player, gun* a_gun) {
@@ -227,16 +245,16 @@ void item::adjustment_item(int item_num, bool plus_minus) { // 플레이어의 아이템
 			item3_count++;
 		}
 	}
-	else if (plus_minus == false and item1_count > 0) {
-		if (item_num == 1) {
+	else if (plus_minus == false) {
+		if ((item_num == 1) and (item1_count > 0)) {
 			item1_count--;
 
 		}
-		else if (item_num == 2 and item3_count > 0) {
+		else if ((item_num == 2) and (item2_count > 0)) {
 			item2_count--;
 
 		}
-		else if (item_num == 3 and item3_count > 0) {
+		else if ((item_num == 3) and (item3_count > 0)) {
 			item3_count--;
 		}
 	}
@@ -300,8 +318,7 @@ int game_interface::start() { // 게임을 실행했을 때 플레이어에게 게임 시작, 게임
 }
 void game_interface::game_inf() { // 게임의 룰을 보여주는 함수
 	cout << "게임의 정보들을 보여드림\n";
-	cout << "엔터키를 입력하세요\n";
-	int ch = getc(stdin);
+	waitForEnter();
 }
 void game_interface::game_start() { // 게임 실행 함수
 	player* p1 = new player;	// 플레이어 객체 생성
@@ -315,7 +332,7 @@ void game_interface::game_start() { // 게임 실행 함수
 	char ch; // 게임이 종료 되었을 때 플레이어에게 앤터키를 입력 받기 위한 변수
 	player::show_maxhp();	// 최대 체력 출력
 
-	while (p1->hp != 0 or p2->hp != 0) { // 두 플레이어의 어느 한쪽의 체력이 0이 될때까지 반복
+	while ((p1->hp != 0) and (p2->hp != 0)) { // 두 플레이어의 어느 한쪽의 체력이 0이 될때까지 반복
 		for (int i = 1; i < 4; i++) {
 			p1->player_item->adjustment_item(i, rand() % 2);	// 플레이어의 아이템을 랜덤으로 0개에서 1개 추가
 			p2->player_item->adjustment_item(i, rand() % 2);
@@ -443,20 +460,29 @@ void game_interface::game_start() { // 게임 실행 함수
 	}
 	if ((p1->hp <= 0) and (p2->hp > 0)) {
 		cout << "p2가 승리하였습니다.\n";
-		ch = cin.get();
+		waitForEnter();
+		exit(0);
 	}
 	else if ((p2->hp <= 0) and (p1->hp > 0)) {
 		cout << "p1이 승리하였습니다.\n";
-		ch = cin.get();
+		waitForEnter();
+		exit(0);
 	}
 	else if ((p2->hp <= 0) and (p1->hp <= 0)) {
 		cout << "무승부 입니다\n";
-		ch = cin.get();
+		waitForEnter();
+		exit(0);
 	}
 	else {
 		cout << "알 수 없는 시스템 오류가 발생했습니다.";
-		ch = cin.get();
+		waitForEnter();
+		exit(0);
 	}
+}
+void game_interface::waitForEnter() {
+	char input;
+	cout << "Enter 키를 눌러주세요\n";
+	input = getc(stdin);
 }
 // 메인 함수
 int main() {
